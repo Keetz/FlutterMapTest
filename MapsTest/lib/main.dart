@@ -34,16 +34,22 @@ class MapSampleState extends State<MapSample> {
   ];
 
   final Set<Marker> _markers = <Marker>{};
-  BitmapDescriptor _icon;
+  Future<BitmapDescriptor> _icon;
 
   @override
   void initState() {
     super.initState();
 
-    BitmapDescriptor.fromAssetImage(
-            ImageConfiguration(), 'assets/images/marker.png')
-        .then((BitmapDescriptor onValue) {
-      _icon = onValue;
+    _icon = BitmapDescriptor.fromAssetImage(ImageConfiguration(), 'assets/images/marker.png');
+
+    // When the _icon and the _controller are resolved... then update the markers
+    Future.wait([_icon, _controller.future]).then((values) {
+      // Unused, but we can use them for whatever we need...
+      // (These are returned in the same order as the futures to `wait`)
+      BitmapDescriptor icon = values[0];
+      GoogleMapController controller = values[1];
+
+      _onMapAndBitmapInitialized();
     });
   }
 
@@ -62,15 +68,21 @@ class MapSampleState extends State<MapSample> {
 
   void _onMapCreated(GoogleMapController controller) {
     _controller.complete(controller);
+  }
 
+  // This will run when both _icon and _controller have resolved...
+  // (It can be made sync by passing the icon from the call, so we don't have to
+  // await _icon inside)
+  void _onMapAndBitmapInitialized() async {
+    final icon = await _icon;
     setState(() {
       for (LatLng coords in someCoords) {
-        _markers.add(_createMarker(context, coords));
+        _markers.add(_createMarker(context, coords, icon));
       }
     });
   }
 
-  Marker _createMarker(BuildContext context, LatLng coords) {
+  Marker _createMarker(BuildContext context, LatLng coords, BitmapDescriptor icon) {
     return Marker(
       markerId: MarkerId(coords.toString()),
       position: coords,
@@ -78,7 +90,7 @@ class MapSampleState extends State<MapSample> {
         title: coords.toString(),
         snippet: coords.toString(),
       ),
-      icon: _icon, // ERROR
+      icon: icon,
     );
   }
 }
